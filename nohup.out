@@ -1,0 +1,18 @@
+
+############################
+INFO: You are using the old nnU-Net default plans. We have updated our recommendations. Please consider using those instead! Read more here: https://github.com/MIC-DKFZ/nnUNet/blob/master/documentation/resenc_presets.md
+############################
+
+Using device: cuda:0
+
+#######################################################################
+Please cite the following paper when using nnU-Net:
+Isensee, F., Jaeger, P. F., Kohl, S. A., Petersen, J., & Maier-Hein, K. H. (2021). nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. Nature methods, 18(2), 203-211.
+#######################################################################
+
+2025-07-15 11:10:25.511394: do_dummy_2d_data_aug: False
+2025-07-15 11:10:25.514950: Using splits from existing split file: /host/verges/tank/data/eya/nnUNet_preprocessed/Dataset555_Superresolution/splits_final.json
+2025-07-15 11:10:25.517418: The split file contains 5 splits.
+2025-07-15 11:10:25.518949: Desired fold for training: 0
+2025-07-15 11:10:25.520615: This split has 19 training and 5 validation cases.
+using pin_memory on device 0
