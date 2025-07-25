@@ -50,6 +50,10 @@ class DefaultPreprocessor(object):
         if seg is not None:
             assert data.shape[1:] == seg.shape[1:], "Shape mismatch between image and segmentation. Please fix your dataset and make use of the --verify_dataset_integrity flag to ensure everything is correct"
             seg = np.copy(seg)
+            if seg is not None:
+                print(f"[DEBUG] seg dtype: {seg.dtype}, shape: {seg.shape}, max: {np.max(seg)}")
+            else:
+                print("[DEBUG] seg is None")
 
         has_seg = seg is not None
 
@@ -93,28 +97,44 @@ class DefaultPreprocessor(object):
                   f'new_spacing: {target_spacing}, fn_data: {configuration_manager.resampling_fn_data}')
 
         # if we have a segmentation, sample foreground locations for oversampling and add those to properties
-        if has_seg:
+        # if has_seg:
             # reinstantiating LabelManager for each case is not ideal. We could replace the dataset_json argument
             # with a LabelManager Instance in this function because that's all its used for. Dunno what's better.
             # LabelManager is pretty light computation-wise.
-            label_manager = plans_manager.get_label_manager(dataset_json)
-            collect_for_this = label_manager.foreground_regions if label_manager.has_regions \
-                else label_manager.foreground_labels
+            # label_manager = plans_manager.get_label_manager(dataset_json)
+            # collect_for_this = label_manager.foreground_regions if label_manager.has_regions \
+                # else label_manager.foreground_labels
 
             # when using the ignore label we want to sample only from annotated regions. Therefore we also need to
             # collect samples uniformly from all classes (incl background)
-            if label_manager.has_ignore_label:
-                collect_for_this.append([-1] + label_manager.all_labels)
+            # if label_manager.has_ignore_label:
+                # collect_for_this.append([-1] + label_manager.all_labels)
 
             # no need to filter background in regions because it is already filtered in handle_labels
             # print(all_labels, regions)
-            properties['class_locations'] = self._sample_foreground_locations(seg, collect_for_this,
-                                                                                   verbose=self.verbose)
-            seg = self.modify_seg_fn(seg, plans_manager, dataset_json, configuration_manager)
-        if np.max(seg) > 127:
-            seg = seg.astype(np.int16)
-        else:
-            seg = seg.astype(np.int8)
+
+
+
+            # properties['class_locations'] = self._sample_foreground_locations(seg, collect_for_this, verbose=self.verbose)
+            
+
+
+            # seg = self.modify_seg_fn(seg, plans_manager, dataset_json, configuration_manager)
+            # if has_seg and np.issubdtype(seg.dtype, np.integer):
+                # seg = self.modify_seg_fn(seg, plans_manager, dataset_json, configuration_manager)
+
+
+
+         #if np.max(seg) > 127:
+            # seg = seg.astype(np.int16)
+        # else:
+            # seg = seg.astype(np.int8)
+
+        # Keep segmentation in float if it's regression; otherwise convert to int
+
+        if seg is not None:
+            seg = seg.astype(np.float32)
+
         return data, seg, properties
 
     def run_case(self, image_files: List[str], seg_file: Union[str, None], plans_manager: PlansManager,
@@ -152,7 +172,16 @@ class DefaultPreprocessor(object):
                       dataset_json: Union[dict, str]):
         data, seg, properties = self.run_case(image_files, seg_file, plans_manager, configuration_manager, dataset_json)
         data = data.astype(np.float32, copy=False)
-        seg = seg.astype(np.int16, copy=False)
+        # seg = seg.astype(np.int16, copy=False)
+        # Do NOT cast to int16 if this is a regression task
+        # Auto-detect if this is a regression task (float labels)
+        
+        if np.issubdtype(seg.dtype, np.integer):
+            #seg = seg.astype(np.int16, copy=False)  # classification/segmentation
+            print("It thinks this is segmentation")
+        else:
+            seg = seg.astype(np.float32, copy=False)  # regression
+
         # print('dtypes', data.dtype, seg.dtype)
         block_size_data, chunk_size_data = nnUNetDatasetBlosc2.comp_blosc2_params(
             data.shape,
@@ -236,7 +265,12 @@ class DefaultPreprocessor(object):
                 raise RuntimeError(f'Unable to locate class \'{scheme}\' for normalization')
             normalizer = normalizer_class(use_mask_for_norm=configuration_manager.use_mask_for_norm[c],
                                           intensityproperties=foreground_intensity_properties_per_channel[str(c)])
-            data[c] = normalizer.run(data[c], seg[0])
+            if np.issubdtype(seg.dtype, np.integer):
+                data[c] = normalizer.run(data[c], seg[0])
+            else:
+                data[c] = normalizer.run(data[c], None)
+
+            # data[c] = normalizer.run(data[c], seg[0])
         return data
 
     def run(self, dataset_name_or_id: Union[int, str], configuration_name: str, plans_identifier: str,

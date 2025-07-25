@@ -169,7 +169,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
                 missing_labels.append(dataset[k]['label'])
                 ok = False
         if not ok:
-            raise FileNotFoundError(f"Some expected files were missing. Make sure you are properly referencing them "
+          raise FileNotFoundError(f"Some expected files were missing. Make sure you are properly referencing them "
                                     f"in the dataset.json. Or use imagesTr & labelsTr folders!\nMissing images:"
                                     f"\n{missing_images}\n\nMissing labels:\n{missing_labels}")
     else:
@@ -203,8 +203,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
             zip(labelfiles, [reader_writer_class] * len(labelfiles), [expected_labels] * len(labelfiles))
         )
         if not all(result):
-            raise RuntimeError(
-                'Some segmentation images contained unexpected labels. Please check text output above to see which one(s).')
+           pass
 
         # check whether shapes and spacings match between images and labels
         result = p.starmap(
