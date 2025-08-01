@@ -1,28 +1,50 @@
-# test_dataloader_speed.py
+# test_minimal_batch.py
 
 import time
+import torch
+from torch.cuda import synchronize
 from nnunetv2.run.run_training import get_trainer_from_args
 
-# 1) Instantiate & initialize trainer
+# 1) Build & init trainer
 trainer = get_trainer_from_args(
     "555",                       # dataset ID
     "3d_fullres",                # configuration
     0,                           # fold
-    "nnUNetTrainerMRIRegression" # trainer class name
+    "nnUNetTrainerMRIRegression" # custom trainer class name
 )
 trainer.initialize()
+trainer.on_train_start()  # sets up trainer.dataloader_train
 
-# 2) Build the dataloaders (this returns the augmenters)
-train_loader, val_loader = trainer.get_dataloaders()
+# 2) Grab one batch
+loader = trainer.dataloader_train
+batch = next(iter(loader))
+data, target = batch['data'], batch['target']
 
-# 3) Time one batch load + augmentation
-start = time.time()
-batch = next(train_loader)
-elapsed = time.time() - start
-print(f"✔ One batch (data + augmentation) took {elapsed:.3f} seconds")
+# Move everything to device once (so we’re timing pure compute, not the first-to-GPU paywall)
+data = data.to(trainer.device, non_blocking=True)
+if isinstance(target, list):
+    target = [t.to(trainer.device, non_blocking=True) for t in target]
+else:
+    target = target.to(trainer.device, non_blocking=True)
 
-# 4) Cleanly stop the loader threads
-if hasattr(train_loader, "_finish"):
-    train_loader._finish()
-if hasattr(val_loader, "_finish"):
-    val_loader._finish()
+net = trainer.network
+opt = trainer.optimizer
+loss_fn = trainer.loss
+scaler = trainer.grad_scaler
+
+# Helper to time on GPU
+def timed(step_name, fn):
+    torch.cuda.synchronize()
+    t0 = time.time()
+    fn()
+    torch.cuda.synchronize()
+    print(f"{step_name:15s}: {(time.time()-t0)*1000:.1f} ms")
+
+# 3) Run timings
+timed("Forward",    lambda: net(data))
+timed("Backward",   lambda: loss_fn(net(data), target).backward() if scaler is None else scaler.scale(loss_fn(net(data), target)).backward())
+timed("Optimizer",  lambda: (scaler.step(opt), scaler.update(), opt.zero_grad()) if scaler is not None else (opt.step(), opt.zero_grad()))
+
+# 4) Clean up loader threads
+if hasattr(loader, "_finish"):
+    loader._finish()
