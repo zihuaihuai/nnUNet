@@ -3,22 +3,24 @@
 import time
 from nnunetv2.run.run_training import get_trainer_from_args
 
-# 1) Build & initialize your trainer
+# 1) Instantiate your trainer (positional args only)
 trainer = get_trainer_from_args(
-    "555",                       # dataset ID
+    "555",                       # your dataset ID
     "3d_fullres",                # configuration
     0,                           # fold
-    "nnUNetTrainerMRIRegression" # custom trainer class
+    "nnUNetTrainerMRIRegression" # your trainer class name
 )
-trainer.initialize()            # sets up data loaders, model, etc.
 
-# 2) Grab the DataLoader and wrap it in an iterator
-dataloader = trainer.dataloader_train
-data_iter = iter(dataloader)
+# 2) Build network, optimizer, etc.
+trainer.initialize()
 
-# 3) Time one batch pull
+# 3) Set up the dataloaders
+trainer.on_train_start()  # <-- this is what actually sets trainer.dataloader_train
+
+# 4) Grab the DataLoader and time one batch
+loader = trainer.dataloader_train
 start = time.time()
-batch = next(data_iter)
+batch = next(iter(loader))
 elapsed = time.time() - start
 
-print(f"✔ One batch load took {elapsed:.3f} seconds")
+print(f"✔ One batch (data + augmentation) took {elapsed:.3f} seconds")
