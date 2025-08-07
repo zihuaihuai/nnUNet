@@ -109,7 +109,10 @@ class nnUNetTrainerMRIRegression(nnUNetTrainer):
             p_scaling=0.2,
             scaling=(0.9, 1.1),
             p_synchronize_scaling_across_axes=1,
-            bg_style_seg_sampling=False
+            bg_style_seg_sampling=False,
+            order_seg=3,  # Use high-quality trilinear interpolation for the target
+            border_mode_seg='constant', # Pad with a constant value
+            border_cval_seg=0 # The value to use for padding
         ))
         if mirror_axes:
             transforms.append(MirrorTransform(allowed_axes=mirror_axes))
